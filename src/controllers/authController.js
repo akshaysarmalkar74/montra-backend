@@ -79,3 +79,97 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ message: "Error logging in user" });
   }
 };
+
+// Forgot Password
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenExpires = new Date(Date.now() + 15 * 60000); // 15 minutes expiry
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetTokenExpires;
+    await user.save();
+
+    const resetUrl = `montra://reset-password?token=${resetToken}&email=${email}`;
+    const emailContent = `
+      <p>Dear ${user.name},</p>
+      <p>We received a request to reset your password for your account associated with this email address.</p>
+      <p>If you made this request, please click the link below to reset your password:</p>
+      <p><a href="${resetUrl}" target="_blank">${resetUrl}</a></p>
+      <p>This link will expire in 15 minutes. If you did not request a password reset, please ignore this email or contact our support team if you have concerns.</p>
+      <p>Thank you,</p>
+      <p>The Montra Team</p>
+    `;
+
+    await sendVerificationEmail(email, emailContent, { isHtml: true });
+
+    res.status(200).json({ message: "Password reset instructions sent to email" });
+  } catch (error) {
+    console.error("Error in forgot password:", error);
+    res.status(500).json({ message: "Error processing forgot password request", error: error.message });
+  }
+};
+
+// Setup PIN
+exports.setupPin = async (req, res) => {
+  try {
+    const { email, pin } = req.body;
+
+    if (!email || !pin) {
+      return res.status(400).json({ message: "Email and PIN are required" });
+    }
+
+    if (!/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ message: "PIN must be a 4-digit number" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.pin = pin;
+    await user.save();
+
+    res.status(200).json({ message: "PIN setup successfully" });
+  } catch (error) {
+    console.error("Error setting up PIN:", error);
+    res.status(500).json({ message: "Error setting up PIN", error: error.message });
+  }
+};
+
+// Verify PIN
+exports.verifyPin = async (req, res) => {
+  try {
+    const { email, pin } = req.body;
+
+    if (!email || !pin) {
+      return res.status(400).json({ message: "Email and PIN are required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.pin !== pin) {
+      return res.status(400).json({ message: "Invalid PIN" });
+    }
+
+    res.status(200).json({ message: "PIN verified successfully" });
+  } catch (error) {
+    console.error("Error verifying PIN:", error);
+    res.status(500).json({ message: "Error verifying PIN", error: error.message });
+  }
+};
