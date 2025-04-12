@@ -13,7 +13,7 @@ const sendVerificationEmail = async (email, code) => {
     from: process.env.EMAIL_USER,
     to: email,
     subject: "Your Verification Code",
-    text: `Your verification code is ${code}. It expires in 10 minutes.`,
+    text: `Thank you for registering. Please use the following verification code to complete your registration. This code will expire in 10 minutes. \n\nVerification Code: ${code}`,
   });
 };
 
